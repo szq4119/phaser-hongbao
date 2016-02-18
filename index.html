@@ -1,0 +1,238 @@
+<!doctype html> 
+<head> 
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <META HTTP-EQUIV="Pragma" CONTENT="no-cache"> 
+    <META HTTP-EQUIV="Cache-Control" CONTENT="no-cache"> 
+    <META HTTP-EQUIV="Expires" CONTENT="0">
+    <title>抢红包</title>
+    
+    <style type="text/css">
+        body {
+            width: 100%; height: 100%; margin: 0px;
+        }
+    </style>
+</head>
+<body style="position: relative;">
+    <div id="game" style="width: 100%; height: 100%;"></div>
+    <div id="shareguide" style="position: absolute; z-index: 9999; opacity: 0.8; background: #333; top:0px; left: 0px; width: 100%; height: 100%; display: none;"></div>
+    <script src="http://static.axmall.com.au/lib/jquery.min.js"></script>
+    <script src="js/phaser.min.js"></script>
+    <script>
+        var axmallGame = axmallGame || {};
+
+        axmallGame.UID = 332432;
+        axmallGame.LOTTERYNUM = 1;
+        axmallGame.TITLE = document.title;
+        axmallGame.SCORE = 0;
+        axmallGame.WINSCORE = 1;
+
+        axmallGame.Preload = function() {console.log('Preload') };
+        axmallGame.Preload.prototype = {
+            create: function() {
+                this.game.state.start('MainMenu');
+            }
+        };
+
+        axmallGame.MainMenu = function() { console.log('MainMenu') };
+        axmallGame.MainMenu.prototype = {
+            preload: function() {
+                this.game.load.spritesheet('startbtn','assets/startbtn.png', 237, 69);
+                this.game.load.spritesheet('sharebtn','assets/sharebtn.png', 587, 72);
+            },
+            create: function() {
+                var gamebg = this.game.add.graphics(0, 0);
+                gamebg.beginFill(0xFFFFEB, 1);
+                gamebg.drawRect(0, 0, this.game.world.width, this.game.world.height);
+                gamebg.endFill();
+                var lotteryText = this.game.add.text(this.game.world.centerX + 110, this.game.world.centerY, "您有 " + axmallGame.LOTTERYNUM + " 次游戏机会" , { font: "Bold 26px Microsoft YaHei", fill: '#D11526', padding : "10px", align: "center"});
+                lotteryText.anchor.setTo(1);
+                if(axmallGame.LOTTERYNUM > 0){
+                    var startbtn = this.game.add.button(this.game.world.centerX - 95,this.game.world.centerY + 100,'startbtn', this.startGame);
+                    startbtn.scale.setTo(0.8);
+                }else{
+                    var that = this;
+                    this.game.add.button(this.game.world.centerX - 147,this.game.world.centerY + 200,'sharebtn',function(){
+                        $('#shareguide').show();
+                    }).scale.setTo(0.5);
+                    title = "xxxxxx";
+                }
+            },
+            startGame: function() {
+                axmallGame.LOTTERYNUM -- ;
+                this.game.state.start('Play');
+            }
+        };
+
+        axmallGame.Play = function() { console.log('Play') };
+        axmallGame.Play.prototype = {
+            preload:function(){
+                axmallGame.SCORE = 0 ;
+                this.playtime = 3;
+                this.pipeVelocity = 100;
+                this.pipeGravity = 90;
+                this.game.load.spritesheet('pipe', 'assets/flymoney.png',230,185);
+                this.game.load.spritesheet('explosions', 'assets/explosion.png', 137, 137);
+                this.game.load.spritesheet('blank','assets/blank.png',30,30);
+
+                var gamebg = this.game.add.graphics(0, 0);
+                gamebg.beginFill(0xFFFFEB, 1);
+                gamebg.drawRect(0, 0, this.game.world.width, this.game.world.height);
+                gamebg.endFill();
+                this.game.physics.startSystem(Phaser.Physics.ARCADE);
+            },
+            create: function() {
+                this.timeText = this.game.add.text(10, 10, " 倒计时: " + this.playtime + "S", {
+                    font: "18px Microsoft YaHei", fill: '#D11526', align: "left"
+                });
+                this.scoreText = this.game.add.text(10 + 110, 10, "获得：0 个红包", {
+                    font: "18px Microsoft YaHei", fill: '#D11526', align: "right"
+                });
+                this.pipes = this.game.add.group();
+                this.game.physics.arcade.enable(this.pipes);
+                this.pipes.setAll('checkWorldBounds',true);
+                this.pipes.setAll('outOfBoundsKill', true);
+                this.pipes.enableBody = true;
+                this.pipes.createMultiple(150, 'pipe');
+                var time = this.game.rnd.between(4,8)*100;
+                this.pipestimer = this.game.time.events.loop(time, this.add_row_of_pipes, this);
+                this.playtimer = this.game.time.events.loop(1000, this.countdown, this);
+            },
+            update: function() {
+                this.game.input.onDown.add(this.addpoint, this);
+            },
+            addpoint: function(){
+                var point = this.input;
+                var blank = this.game.add.sprite(point.x, point.y, 'blank');
+                this.game.physics.arcade.enable(blank);
+                this.game.physics.arcade.overlap(blank, this.pipes, this.hit_pipe, null, this);
+                blank.destroy();
+            },
+            add_row_of_pipes: function(){
+                if(this.playtime >= 0){
+                    var hole = Math.floor(Math.random()*7);
+                    var w = window.innerWidth / 9;
+                    this.pipestimer.delay = this.game.rnd.between(4,12)*100;
+                    if( this.pipeVelocity <= 400 )
+                        this.pipeVelocity += 6 ;
+                        this.add_one_pipe(hole * w + 10, 0);
+                    if( this.pipeVelocity > 270 )
+                        this.add_one_pipe(((hole*3)%8) * w + 10, 0);
+                }else{
+                    this.game.time.events.remove(this.pipestimer);
+                    this.game.time.events.remove(this.playtimer);
+                    this.gameOver();
+                }
+            },
+            countdown: function(){
+                this.playtime--;
+                if(this.playtime >= 0){
+                    this.timeText.setText(" 倒计时: " + this.playtime + "S");
+                }
+            },
+            add_one_pipe: function(x,y){
+                this.pipe = this.pipes.getFirstDead();
+                this.pipe.reset(x, y);
+                var moneytype = this.game.rnd.between(0,1);
+                this.pipe.frame = moneytype;
+                if(moneytype == 1){
+                    this.pipe.animations.add('fly', [1, 2, 3]);
+                    this.pipe.animations.play('fly', 10, true);
+                }
+                this.pipe.scale.setTo(0.5);
+                this.pipe.body.gravity.y = this.pipeGravity;
+                this.pipe.body.velocity.y = this.pipeVelocity; 
+                this.pipe.outOfBoundsKill = true;
+                this.game.physics.arcade.enable(this.pipe);
+                this.pipe.body.checkCollision.left = true;
+                this.pipe.body.checkCollision.right = true;
+                this.pipe.body.bounce.setTo(0.5);
+            },
+            hit_pipe: function(blank, pipe){
+                h = 185;
+                var bomo = this.game.add.sprite(pipe.x, pipe.y, 'explosions');
+                var anim = bomo.animations.add('blast', [0, 1, 2, 3, 4, 5, 6, 7]);
+                bomo.animations.play('blast', 20, true);
+                anim.killOnComplete = true;
+                anim.loop = false;
+                anim.loopCount = 1;
+                anim.onComplete.add(this.animationStopped, this);
+                pipe.destroy();
+            },
+            animationStopped: function(){
+                axmallGame.SCORE ++ ;
+                this.scoreText.setText("获得：" + axmallGame.SCORE + "个红包");
+            },
+            gameOver: function() {
+                this.state.start('gameOver');
+            }  
+        };
+
+        axmallGame.gameOver = function() { console.log('gameOver') };
+        axmallGame.gameOver.prototype = {
+            preload: function() {
+                this.game.load.image('gameendbg', 'assets/rs-bg.jpg');
+                this.game.load.spritesheet('winmonkey', 'assets/winmonkey.png',293, 357);
+                this.game.load.spritesheet('losemonkey', 'assets/losemonkey.png',293, 357);
+                this.game.load.spritesheet('startbtn','assets/startbtn.png', 237, 69);
+                this.game.load.spritesheet('againbtn','assets/againbtn.png', 587, 72);
+                this.game.load.spritesheet('sharebtn','assets/sharebtn.png', 587, 72);
+                this.game.load.spritesheet('losebtn','assets/losebtn.png', 587, 72);
+            },
+            create: function() {
+                var gameendbg = this.game.add.image(0, 0, 'gameendbg');
+                gameendbg.width = window.innerWidth, gameendbg.height = window.innerHeight;
+                if(axmallGame.SCORE > axmallGame.WINSCORE){
+                    var monkey = this.game.add.sprite(this.game.world.centerX - 73, this.game.world.centerY - 250, 'winmonkey');
+                    monkey.scale.setTo(0.5);
+                    this.game.add.text(this.game.world.centerX - 110, this.game.world.centerY, "恭喜您获奖：" , {
+                        font: "26px Microsoft YaHei", fill: '#663202'
+                    });
+                    this.game.add.text(this.game.world.centerX - 110, this.game.world.centerY + 40, "奖品为：50元优惠券" , {
+                        font: "26px Microsoft YaHei", fill: '#663202'
+                    });
+                    if(axmallGame.LOTTERYNUM > 0){
+                        var that = this;
+                        this.game.add.button(this.game.world.centerX - 147,this.game.world.centerY + 200,'againbtn',function(){
+                            that.state.start('Preload');
+                        }).scale.setTo(0.5);
+                    }else{
+                        var that = this;
+                        this.game.add.button(this.game.world.centerX - 147,this.game.world.centerY + 200,'sharebtn',function(){
+                            $('#shareguide').show();
+                        }).scale.setTo(0.5);
+                    }
+                }else{
+                    this.game.add.sprite(this.game.world.centerX - 73, this.game.world.centerY - 250, 'losemonkey').scale.setTo(0.5);
+                    this.game.add.text(this.game.world.centerX - 110, this.game.world.centerY, "咦？怎么啥都没有咧？" , {
+                        font: "26px Microsoft YaHei", fill: '#663202'
+                    });
+                    this.game.add.text(this.game.world.centerX - 110, this.game.world.centerY + 40, "换个姿势再来一遍" , {
+                        font: "26px Microsoft YaHei", fill: '#663202'
+                    });
+                    if(axmallGame.LOTTERYNUM > 0){
+                        var that = this;
+                        this.game.add.button(this.game.world.centerX - 147,this.game.world.centerY + 200,'againbtn',function(){
+                            that.state.start('Preload');
+                        }).scale.setTo(0.5);
+                    }else{
+                        var that = this;
+                        this.game.add.button(this.game.world.centerX - 147,this.game.world.centerY + 200,'losebtn',function(){
+                            $('#shareguide').show();
+                        }).scale.setTo(0.5);
+                    }
+                }
+            },
+        };
+
+
+        axmallGame.game = new Phaser.Game(window.innerWidth, window.innerHeight, Phaser.CANVAS, 'game');
+        axmallGame.game.state.add('Preload', axmallGame.Preload);
+        axmallGame.game.state.add('MainMenu', axmallGame.MainMenu);
+        axmallGame.game.state.add('Play', axmallGame.Play);
+        axmallGame.game.state.add('gameOver', axmallGame.gameOver);
+        axmallGame.game.state.start('Preload');
+    </script>
+</body>
+
+</html>
